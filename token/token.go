@@ -29,7 +29,7 @@ func (s *Service) GenerateToken() string {
 	return strings.ReplaceAll(uuid.New().String(), "-", "")
 }
 
-func (s *Service) Middleware(ignoredPaths ...string) middleware.Middleware {
+func (s *Service) Middleware(ignoredPaths []string, m ...middleware.Middleware) middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			var tokenString string
@@ -60,7 +60,14 @@ func (s *Service) Middleware(ignoredPaths ...string) middleware.Middleware {
 				return nil, NewAuthorizationError(ErrMissingToken)
 			}
 
-			return handler(s.newContextWithToken(ctx, tokenString), req)
+			// 将 token 信息传递给 handler
+			ctx = s.newContextWithToken(ctx, tokenString)
+
+			for i := 0; i < len(m); i++ {
+				handler = m[i](handler) // 链式调用中间件
+			}
+
+			return handler(ctx, req)
 		}
 	}
 }
